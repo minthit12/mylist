@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>အိမ်အသုံးစာရင်း</title>
+    <style>
+        :root { --main-blue: #3b5998; --green: #2e7d32; --red: #c62828; --gold: #a67c00; --sky: #2980b9; }
+        body { font-family: sans-serif; background: #e9ecef; margin: 0; padding-bottom: 300px; }
+        .app-container { width: 100%; max-width: 450px; background: white; min-height: 100vh; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; }
+        .header { background: var(--main-blue); color: white; text-align: center; padding: 15px; font-weight: bold; font-size: 26px; }
+        .content { padding: 20px; }
+
+        /* Report Screen Designs */
+        .report-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 1000; overflow-y: auto; }
+        .report-active { display: block; }
+        .list-group { border: 1px solid #ddd; margin-bottom: 10px; border-radius: 5px; overflow: hidden; }
+        .list-header { background: #f8f9fa; padding: 15px; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid #eee; }
+        .list-content { display: none; background: #ffffff; padding: 10px; font-size: 16px; }
+
+        input:focus { scroll-margin-bottom: 300px; }
+        .back-btn { background: #666; color: white; padding: 10px; margin: 10px; width: 80px; border-radius: 4px; text-align: center; cursor: pointer; font-weight: bold; }
+        
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 18px; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 5px; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 20px; }
+        
+        .btn-save { background: #27ae60; }
+        .btn-total-all { background: var(--gold); margin-top: 10px; }
+        .btn-report { background: var(--sky); margin-top: 5px; }
+        
+        .label-highlight { color: var(--main-blue); font-weight: bold; font-size: 20px; margin-top: 15px; display: block; text-align: center; border: 2px solid var(--main-blue); padding: 5px; }
+        .income-header { background: var(--green); color: white; padding: 12px; border-radius: 4px; margin-top: 10px; cursor: pointer; display: flex; justify-content: space-between; }
+        .expense-header { background: var(--red); color: white; padding: 12px; border-radius: 4px; margin-top: 10px; cursor: pointer; display: flex; justify-content: space-between; }
+        
+        .detail-list { padding: 10px; background: #f1f1f1; border-radius: 0 0 4px 4px; font-size: 18px; display: none; }
+        .detail-item { border-bottom: 1px solid #ccc; padding: 8px 0; display: flex; justify-content: space-between; gap: 10px; }
+        .balance-box { background: var(--sky); color: white; padding: 15px; text-align: center; border-radius: 4px; margin-top: 15px; font-size: 20px; font-weight: bold; }
+        .sub-name { font-weight: bold; color: #333; background: #e2e2e2; padding: 5px 8px; border-radius: 3px; margin-top: 10px; display: block; }
+
+        /* ထပ်တိုးစတိုင်များ (အမည်အလိုက်ကြည့်ရန်အတွက်) */
+        .name-summary-line { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; }
+        .name-summary-line:last-child { border-bottom: none; }
+        .name-detail-box { display: none; background: #f9f9f9; padding: 5px 15px; border-left: 3px solid #ccc; margin-bottom: 5px; }
+        .name-detail-box.active { display: block; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">အိမ်အသုံးစရိတ်</div>
+    <span class="label-highlight">စာရင်းသစ်သွင်းရန်</span>
+    
+    <div class="content">
+        <input type="date" id="dateInput">
+        <input type="text" id="nameInput" placeholder="အမည်" list="nameOptions">
+        <datalist id="nameOptions"></datalist>
+        <input type="text" id="detailInput" placeholder="အကြောင်းအရာ" list="detailOptions">
+        <datalist id="detailOptions"></datalist>
+        <input type="number" id="amountInput" placeholder="ငွေပမာဏ">
+        <select id="typeInput">
+            <option value="ထွက်ငွေ">ထွက်ငွေ</option>
+            <option value="ဝင်ငွေ">ဝင်ငွေ</option>
+        </select>
+        <button class="btn-save" onclick="confirmAndSave()">စာရင်းသွင်းမည်</button>
+
+        <div style="margin-top: 20px; border-top: 2px solid #ddd; padding-top: 15px;">
+            <button class="btn-report" onclick="openReport('nameReportScreen')">အမည်အလိုက်ကြည့်ရန် ▼</button>
+            <button class="btn-report" onclick="openReport('detailReportScreen')">အကြောင်းအရာအလိုက်ကြည့်ရန် ▼</button>
+            <button class="btn-total-all" onclick="showAllMonthlyBalances()">လအလိုက်လက်ကျန်ငွေများ</button>
+        </div>
+
+        <div class="label-highlight" style="margin-top: 20px;">လအလိုက်အသေးစိတ်</div>
+        <input type="month" id="monthPicker" onchange="updateMonthlyReport()">
+
+        <div class="income-header" onclick="toggleDetail('incomeDetails')">
+            <span>ဝင်ငွေ (စုစုပေါင်း)</span>
+            <span id="totalIncomeText">0</span>
+        </div>
+        <div id="incomeDetails" class="detail-list"></div>
+
+        <div class="expense-header" onclick="toggleDetail('expenseDetails')">
+            <span>ထွက်ငွေ (စုစုပေါင်း)</span>
+            <span id="totalExpenseText">0</span>
+        </div>
+        <div id="expenseDetails" class="detail-list"></div>
+
+        <div class="balance-box">
+            ယခုလလက်ကျန်ငွေ: <span id="monthlyBalanceText">0</span> ကျပ်
+        </div>
+    </div>
+</div>
+
+<div id="nameReportScreen" class="report-screen">
+    <div class="back-btn" onclick="goBack()">Back</div>
+    <div class="header">အမည်အလိုက်ကြည့်ရန်</div>
+    <div id="nameListBody" class="content"></div>
+</div>
+
+<div id="detailReportScreen" class="report-screen">
+    <div class="back-btn" onclick="goBack()">Back</div>
+    <div class="header">အကြောင်းအရာအလိုက်ကြည့်ရန်</div>
+    <div id="detailListBody" class="content"></div>
+</div>
+
+<script>
+    let db = JSON.parse(localStorage.getItem('homeData')) || [];
+    let screenHistory = ['homeScreen']; 
+
+    const now = new Date();
+    document.getElementById('dateInput').valueAsDate = now;
+    const currentMonthStr = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}`;
+    document.getElementById('monthPicker').value = currentMonthStr;
+
+    updateMainUI();
+
+    function confirmAndSave() {
+        const name = document.getElementById('nameInput').value.trim();
+        const amount = document.getElementById('amountInput').value;
+        if(!name || !amount) return alert("အချက်အလက် ပြည့်စုံစွာဖြည့်ပါ။");
+
+        if(confirm("စာရင်းသွင်းရန် သေချာပါသလား?")) {
+            const entry = {
+                id: Date.now(),
+                date: document.getElementById('dateInput').value,
+                name: name,
+                detail: document.getElementById('detailInput').value.trim(),
+                amount: parseFloat(amount),
+                type: document.getElementById('typeInput').value
+            };
+            db.push(entry);
+            localStorage.setItem('homeData', JSON.stringify(db));
+            alert("သိမ်းဆည်းပြီးပါပြီ");
+            document.getElementById('nameInput').value = '';
+            document.getElementById('detailInput').value = '';
+            document.getElementById('amountInput').value = '';
+            updateMainUI();
+        }
+    }
+
+    function updateMainUI() {
+        updateDataLists();
+        updateMonthlyReport();
+    }
+
+    function updateDataLists() {
+        const names = [...new Set(db.map(i => i.name))];
+        const details = [...new Set(db.map(i => i.detail))];
+        document.getElementById('nameOptions').innerHTML = names.map(n => `<option value="${n}">`).join('');
+        document.getElementById('detailOptions').innerHTML = details.map(d => `<option value="${d}">`).join('');
+    }
+
+    function toggleDetail(id) {
+        const el = document.getElementById(id);
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function updateMonthlyReport() {
+        const selectedMonth = document.getElementById('monthPicker').value;
+        const filtered = db.filter(i => i.date.startsWith(selectedMonth));
+        let totalIn = filtered.filter(i => i.type === 'ဝင်ငွေ').reduce((a, b) => a + b.amount, 0);
+        let totalOut = filtered.filter(i => i.type === 'ထွက်ငွေ').reduce((a, b) => a + b.amount, 0);
+        document.getElementById('totalIncomeText').innerText = totalIn.toLocaleString();
+        document.getElementById('totalExpenseText').innerText = totalOut.toLocaleString();
+        document.getElementById('monthlyBalanceText').innerText = (totalIn - totalOut).toLocaleString();
+        renderMainDetails('incomeDetails', filtered.filter(i => i.type === 'ဝင်ငွေ'));
+        renderMainDetails('expenseDetails', filtered.filter(i => i.type === 'ထွက်ငွေ'));
+    }
+
+    // ပင်မမျက်နှာပြင်အတွက် render လုပ်သည့်ဖန်ရှင် (နာမည်ပြောင်းထားသည်)
+    function renderMainDetails(containerId, dataList) {
+        const container = document.getElementById(containerId);
+        if(dataList.length === 0) { container.innerHTML = "စာရင်းမရှိပါ။"; return; }
+        const grouped = {};
+        dataList.forEach(item => {
+            if(!grouped[item.name]) grouped[item.name] = { total: 0, items: [] };
+            grouped[item.name].total += item.amount;
+            grouped[item.name].items.push(item);
+        });
+        let html = '';
+        for(let name in grouped) {
+            html += `<span class="sub-name">${name} (စုစုပေါင်း: ${grouped[name].total.toLocaleString()})</span>`;
+            grouped[name].items.forEach(item => {
+                html += `<div class="detail-item"><span>${item.date.split('-').reverse().join('.')} | ${item.detail}</span><span>${item.amount.toLocaleString()}</span></div>`;
+            });
+        }
+        container.innerHTML = html;
+    }
+
+    function showAllMonthlyBalances() {
+        const monthlyData = {};
+        db.forEach(item => {
+            const m = item.date.substring(0, 7);
+            if(!monthlyData[m]) monthlyData[m] = 0;
+            monthlyData[m] += (item.type === 'ဝင်ငွေ' ? item.amount : -item.amount);
+        });
+        let msg = "လအလိုက် လက်ကျန်ငွေများ:\n";
+        const keys = Object.keys(monthlyData).sort().reverse();
+        if(keys.length === 0) msg += "စာရင်းမရှိသေးပါ။";
+        keys.forEach(m => { msg += `${m} : ${monthlyData[m].toLocaleString()} ကျပ်\n`; });
+        alert(msg);
+    }
+
+    // Navigation Logic
+    function openReport(screenId) {
+        document.getElementById(screenId).classList.add('report-active');
+        screenHistory.push(screenId);
+        window.history.pushState({page: screenId}, ""); 
+        if(screenId === 'nameReportScreen') renderNameReport();
+        if(screenId === 'detailReportScreen') renderDetailReport();
+    }
+
+    function goBack() {
+        if (screenHistory.length > 1) {
+            let currentScreen = screenHistory.pop();
+            document.getElementById(currentScreen).classList.remove('report-active');
+        }
+    }
+
+    window.onpopstate = function() { goBack(); };
+
+    // **********************************************************
+    // ပြင်ဆင်ထားသော အမည်အလိုက်ကြည့်ရန် အပိုင်း (လုံးဝမမှားစေရပါ)
+    // **********************************************************
+    function renderNameReport() {
+        const container = document.getElementById('nameListBody');
+        const grouped = {};
+        // နာမည်အလိုက် ဝင်ငွေ၊ ထွက်ငွေ ခွဲစုခြင်း
+        db.forEach(item => {
+            if(!grouped[item.name]) grouped[item.name] = { incomeTotal: 0, expenseTotal: 0, incomeItems: [], expenseItems: [] };
+            if(item.type === 'ဝင်ငွေ') {
+                grouped[item.name].incomeTotal += item.amount;
+                grouped[item.name].incomeItems.push(item);
+            } else {
+                grouped[item.name].expenseTotal += item.amount;
+                grouped[item.name].expenseItems.push(item);
+            }
+        });
+
+        let html = '';
+        for(let name in grouped) {
+            const data = grouped[name];
+            // Safe ID ဆောက်ခြင်း (နာမည်ထဲက space တွေကို _ ပြောင်း)
+            const safeNameId = name.replace(/[^a-zA-Z0-9]/g, '_');
+
+            html += `
+                <div class="list-group">
+                    <div class="list-header" onclick="toggleNested(this)">
+                        <span>👤 ${name}</span>
+                        <span style="font-size:12px;">▼</span>
+                    </div>
+                    
+                    <div class="list-content" style="padding: 0;">
+                        <div class="name-summary-line" style="color:var(--green); border-bottom:1px solid #eee;" onclick="toggleNameDetail('${safeNameId}_in')">
+                            <span>ဝင်ငွေ (စုစုပေါင်း)</span>
+                            <span>${data.incomeTotal.toLocaleString()}</span>
+                        </div>
+                        <div id="${safeNameId}_in" class="name-detail-box">
+                            ${renderItemDetailRows(data.incomeItems)}
+                        </div>
+
+                        <div class="name-summary-line" style="color:var(--red);" onclick="toggleNameDetail('${safeNameId}_out')">
+                            <span>ထွက်ငွေ (စုစုပေါင်း)</span>
+                            <span>${data.expenseTotal.toLocaleString()}</span>
+                        </div>
+                        <div id="${safeNameId}_out" class="name-detail-box">
+                            ${renderItemDetailRows(data.expenseItems)}
+                        </div>
+                    </div>
+                </div>`;
+        }
+        container.innerHTML = html || "စာရင်းမရှိသေးပါ။";
+    }
+
+    // အမည်အလိုက် အသေးစိတ်အကြောင်းအရာများပြရန် ဖန်ရှင်
+    function renderItemDetailRows(items) {
+        if(items.length === 0) return `<div style="padding:10px; color:#999; font-size:14px;">စာရင်းမရှိပါ။</div>`;
+        return items.map(i => `
+            <div class="detail-item" style="font-size:16px; border-bottom:1px dotted #ccc; padding: 10px 0;">
+                <span style="color:#555;">${i.detail || '-'} (${i.date.split('-').reverse().join('.')})</span>
+                <span style="font-weight:bold; color:#333;">${i.amount.toLocaleString()}</span>
+            </div>`).join('');
+    }
+
+    // နာမည်အလိုက် အသေးစိတ်ကွက်ကို အဖွင့်အပိတ်လုပ်ရန်
+    function toggleNameDetail(id) {
+        const el = document.getElementById(id);
+        if(el.classList.contains('active')) {
+            el.classList.remove('active');
+        } else {
+            // တခြားဖွင့်ထားတာရှိရင် ပိတ်ချင်ရင် ဒီလိုင်းကိုသုံးပါ (Optional)
+            // document.querySelectorAll('.name-detail-box').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+        }
+    }
+    // **********************************************************
+
+    function renderDetailReport() {
+        const container = document.getElementById('detailListBody');
+        const grouped = {};
+        db.forEach(item => {
+            if(!grouped[item.detail]) grouped[item.detail] = { total: 0, items: [] };
+            grouped[item.detail].total += (item.type === 'ဝင်ငွေ' ? item.amount : -item.amount);
+            grouped[item.detail].items.push(item);
+        });
+        let html = '';
+        for(let detail in grouped) {
+            html += `<div class="list-group"><div class="list-header" onclick="toggleNested(this)"><span>${detail || 'အကြောင်းအရာမရှိ'}</span><span>${grouped[detail].total.toLocaleString()} ကျပ်</span></div><div class="list-content">` + 
+                grouped[detail].items.map(i => `<div style="border-bottom:1px solid #eee; padding:8px; display:flex; justify-content:space-between;"><span>${i.date.split('-').reverse().join('.')} | ${i.name} | ${i.type}</span><span>${i.amount.toLocaleString()}</span></div>`).join('') + 
+                `</div></div>`;
+        }
+        container.innerHTML = html || "စာရင်းမရှိသေးပါ။";
+    }
+
+    function toggleNested(headerEl) {
+        const content = headerEl.nextElementSibling;
+        content.style.display = (content.style.display === 'block') ? 'none' : 'block';
+    }
+</script>
+</body>
+</html>
